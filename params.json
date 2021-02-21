@@ -1,0 +1,134 @@
+ [{
+     "PutRequest": {
+       "Item": {
+         "app_id": "3",
+         "channel_expires_on": "2021-03-14T03:07:26.595Z",
+         "channel_id": "bc6ed680-718d-11eb-a3be-1739df31e2ee",
+         "resource_id":"n7xGaNxX7CKQSxOOh3VQuKPE0S0",
+         "domain_name": "rvmbe3wumbb0.cybozu.com",
+         "google_access_token": "ya29.A0AfH6SMAepgJ1Dsu93iximAR4D1PQWxuF2PwunFBKOHIQQKkEoDv5-DnRiGtBmTDY3GGkNsw_f4qIny1gdGKnEukCaBSGwNHiJSKtAhv-YUtRyvwqZ7h0oMyM0V_7dl1v4CXXPlL5nuyodNa1ve1LYZuWwWzV",
+         "google_calendar_name": "default",
+         "google_expires_on": "2021-02-12T04:07:26.596Z",
+         "google_refresh_token": "1//0gVzCCB4pJ8vHCgYIARAAGBASNwF-L9IreCeq1B8ECMUPMUfG8jQh2Z2yE2ujSS0yEmoZwnEAldlrBXYvIQzDQsJG3w1sW-dlXlU",
+         "google_user_email": "hayatoisap10@gmail.com",
+         "id": "1",
+         "kintone_access_token": "1.Cky2eeaqbif8B42R4i1DxsWIA2S7E4qpJHjJO9kAzo7TNd6u",
+         "kintone_expires_on": "2021-02-07T03:15:33.297Z",
+         "kintone_refresh_token": "1.wgdMA-qGR9jj8BFVNRhvyFCKCYf4Op1Jvbk1DRsrFyNV5Bwu",
+         "kintone_user_code": "developer@novelworks.jp",
+         "kintone_user_id": "1",
+         "kintone_user_name": "辻本大樹",
+         "time_zone_user": "Asia/Tokyo"
+       }
+     }
+   }, {
+     "PutRequest": {
+       "Item": {
+         "app_id": "219",
+         "channel_expires_on": "2021-02-11T01:12:42.864Z",
+         "channel_id": "cfnjvndfjjnj",
+         "domain_name": "cfnjvndfjjnj",
+         "google_access_token": "cfnjvndfjjnj",
+         "google_calendar_name": "default",
+         "google_expires_on": "2021-01-12T02:12:42.864Z",
+         "google_refresh_token": "1//0gVzCCB4pJ8vHCgYIARAAGBASNwF-L9IreCeq1B8ECMUPMUfG8jQh2Z2yE2ujSS0yEmoZwnEAldlrBXYvIQzDQsJG3w1sW-dlXlU",
+         "google_user_email": "hayatoisap10@gmail.com",
+         "kintone_access_token": "cfnjvndfjjnj",
+         "kintone_expires_on": "cfnjvndfjjnj",
+         "kintone_refresh_token": "cfnjvndfjjnj",
+         "kintone_user_code": "cfnjvndfjjnj",
+         "kintone_user_id": "cfnjvndfjjnj",
+         "kintone_user_name": "cfnjvndfjjnj",
+         "time_zone_user": "Asia/Tokyo",
+         "id": "11"
+       }
+     }
+   }, {
+     "PutRequest": {
+       "Item": {
+         "app_id": "219",
+         "channel_expires_on": "2021-02-11T01:12:42.864Z",
+         "channel_id": "cfnjvndfjjnj",
+         "domain_name": "cfnjvndfjjnj",
+         "google_access_token": "cfnjvndfjjnj",
+         "google_calendar_name": "default",
+         "google_expires_on": "2021-01-12T02:12:42.864Z",
+         "google_refresh_token": "1//0gVzCCB4pJ8vHCgYIARAAGBASNwF-L9IreCeq1B8ECMUPMUfG8jQh2Z2yE2ujSS0yEmoZwnEAldlrBXYvIQzDQsJG3w1sW-dlXlU",
+         "google_user_email": "hayatoisap10@gmail.com",
+         "kintone_access_token": "cfnjvndfjjnj",
+         "kintone_expires_on": "cfnjvndfjjnj",
+         "kintone_refresh_token": "cfnjvndfjjnj",
+         "kintone_user_code": "cfnjvndfjjnj",
+         "kintone_user_id": "cfnjvndfjjnj",
+         "kintone_user_name": "cfnjvndfjjnj",
+         "time_zone_user": "Asia/Tokyo",
+         "id": "111"
+       }
+     }
+   }, {
+    "PutRequest": {
+      "Item": {
+        "app_id": "219",
+        "channel_id": "cfnjvndfjjnj",
+        "domain_name": "cfnjvndfjjnj",
+        "google_access_token": "cfnjvndfjjnj",
+        "google_calendar_name": "default",
+        "google_expires_on": "2021-01-12T02:12:42.864Z",
+        "google_refresh_token": "1//0gVzCCB4pJ8vHCgYIARAAGBASNwF-L9IreCeq1B8ECMUPMUfG8jQh2Z2yE2ujSS0yEmoZwnEAldlrBXYvIQzDQsJG3w1sW-dlXlU",
+        "google_user_email": "hayatoisap10@gmail.com",
+        "kintone_access_token": "cfnjvndfjjnj",
+        "kintone_expires_on": "cfnjvndfjjnj",
+        "kintone_refresh_token": "cfnjvndfjjnj",
+        "kintone_user_code": "cfnjvndfjjnj",
+        "kintone_user_id": "cfnjvndfjjnj",
+        "kintone_user_name": "cfnjvndfjjnj",
+        "time_zone_user": "Asia/Tokyo",
+        "id": "2"
+      }
+    }
+  },
+  {
+    "PutRequest": {
+      "Item": {
+        "app_id": "219",
+        "channel_expires_on": "2021-02-11T01:12:42.864Z",
+        "channel_id": "cfnjvndfjjnj",
+        "domain_name": "cfnjvndfjjnj",
+        "google_access_token": "cfnjvndfjjnj",
+        "google_calendar_name": "default",
+        "google_expires_on": "2021-01-12T02:12:42.864Z",
+        "google_user_email": "hayatoisap10@gmail.com",
+        "kintone_access_token": "cfnjvndfjjnj",
+        "kintone_expires_on": "cfnjvndfjjnj",
+        "kintone_refresh_token": "cfnjvndfjjnj",
+        "kintone_user_code": "cfnjvndfjjnj",
+        "kintone_user_id": "cfnjvndfjjnj",
+        "kintone_user_name": "cfnjvndfjjnj",
+        "time_zone_user": "Asia/Tokyo",
+        "id": "22"
+      }
+    }
+  },
+  {
+    "PutRequest": {
+      "Item": {
+        "app_id": "219",
+        "channel_expires_on": "2021-02-11T01:12:42.864Z",
+        "channel_id": "cfnjvndfjjnj",
+        "domain_name": "cfnjvndfjjnj",
+        "google_access_token": "cfnjvndfjjnj",
+        "google_calendar_name": "default",
+        "google_expires_on": "2021-01-12T02:12:42.864Z",
+        "google_refresh_token": "1//0gVzCCB4pJ8vHCgYIARAAGBASNwF-L9IreCeq1B8ECMUPMUfG8jQh2Z2yE2ujSS0yEmoZwnEAldlrBXYvIQzDQsJG3w1sW-dlXlU",
+        "kintone_access_token": "cfnjvndfjjnj",
+        "kintone_expires_on": "cfnjvndfjjnj",
+        "kintone_refresh_token": "cfnjvndfjjnj",
+        "kintone_user_code": "cfnjvndfjjnj",
+        "kintone_user_id": "cfnjvndfjjnj",
+        "kintone_user_name": "cfnjvndfjjnj",
+        "time_zone_user": "Asia/Tokyo",
+        "id": "222"
+      }
+    }
+  }
+ ]
