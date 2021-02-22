@@ -540,6 +540,7 @@ const configGoogle = async (data) => {
         };
         axios(option)
           .then((response) => {
+            console.log("認可のテスト", response);
             var email = response.data.email;
             var channelId = uuid();
             var paramsUser = {
@@ -560,6 +561,7 @@ const configGoogle = async (data) => {
               if (err) {
                 reject(err);
               } else {
+                console.log("google confign後", dataDb);
                 var channel_expires_on = new Date();
                 channel_expires_on.setDate(channel_expires_on.getDate() + 30);
                 var google_expires_on = new Date();
@@ -2211,183 +2213,241 @@ const checkLoginGoogle = async (body) => {
               ":google_user_email": data.Items[0].google_user_email,
             },
           };
-          dynamodb.scan(paramsGoogleUser, function (err, dataGoogleEmail) {
-            if (err) {
-              reject(err);
-            } else {
-              // if (Object.keys(dataGoogleEmail).length > 0 && dataGoogleEmail.Items.length > 1) {
-              //   var paramsRemove = {
-              //     TableName: 'test-kintone-google-users',
-              //     Key: {
-              //       'id': data.Items[0].id.toString(),
-              //     }
-              //   };
-              //   dynamodb.delete(paramsRemove, function(err, data) {
-              //     if (err) {
-              //       sendSystemMailBaseOnDomain({ domain: body.domain, error: err, errorType: errorCode.SYS_01 });
-              //       reject(err);
-              //     } else {
-              //       resolve({'error1': 'Exist google email'});
-              //     }
-              //   });
-              // } else {
-              if (data.Items[0].google_calendar_name != "default") {
-                getAccesstoken(data.Items[0].google_refresh_token)
-                  .then(function (res) {
-                    const oAuth2Client = new google.auth.OAuth2(clientId);
-                    oAuth2Client.setCredentials(res);
-                    const calendar = google.calendar({
-                      version: "v3",
-                      auth: oAuth2Client,
+          dynamodb.scan(
+            paramsGoogleUser,
+            async function (err, dataGoogleEmail) {
+              if (err) {
+                reject(err);
+              } else {
+                // if (Object.keys(dataGoogleEmail).length > 0 && dataGoogleEmail.Items.length > 1) {
+                //   var paramsRemove = {
+                //     TableName: 'test-kintone-google-users',
+                //     Key: {
+                //       'id': data.Items[0].id.toString(),
+                //     }
+                //   };
+                //   dynamodb.delete(paramsRemove, function(err, data) {
+                //     if (err) {
+                //       sendSystemMailBaseOnDomain({ domain: body.domain, error: err, errorType: errorCode.SYS_01 });
+                //       reject(err);
+                //     } else {
+                //       resolve({'error1': 'Exist google email'});
+                //     }
+                //   });
+                // } else {
+                if (data.Items[0].google_calendar_name != "default") {
+                  var res;
+                  try {
+                    res = await getAccesstoken(
+                      data.Items[0].google_refresh_token
+                    );
+                  } catch (err) {
+                    console.log("getAccesstoken fail", err);
+                    sendSyncMail({
+                      domain: data.Items[0].domain,
+                      errorType: errorCode.SYN_08,
+                      emailNoti: data.Items[0].google_user_email,
                     });
-                    calendar.calendarList.list(function (err, resp) {
-                      if (err || resp.data == undefined) {
-                        reject("err");
-                      } else {
-                        var existCalendarName = false;
-                        var calendarId = "";
-                        resp.data.items.forEach(function (cal) {
-                          if (
-                            data.Items[0].google_calendar_name == cal.summary
-                          ) {
-                            existCalendarName = true;
-                            calendarId = cal.id;
+                  }
+                  const oAuth2Client = new google.auth.OAuth2(clientId);
+                  oAuth2Client.setCredentials(res);
+                  const calendar = google.calendar({
+                    version: "v3",
+                    auth: oAuth2Client,
+                  });
+                  calendar.calendarList.list(async function (err, resp) {
+                    if (err || resp.data == undefined) {
+                      reject("err");
+                    } else {
+                      var existCalendarName = false;
+                      var calendarId = "";
+                      var nextSyncToken = "";
+                      resp.data.items.forEach(function (cal) {
+                        if (data.Items[0].google_calendar_name == cal.summary) {
+                          existCalendarName = true;
+                          calendarId = cal.id;
+                        }
+                      });
+                      try {
+                        nextSyncToken = await getNextSyncToken(
+                          calendarId,
+                          data.Items[0].google_access_token
+                        );
+                      } catch (err) {
+                        console.log("getNextSyncToken fail", err);
+                        sendSyncMail({
+                          domain: data.Items[0].domain,
+                          errorType: errorCode.SYN_08,
+                          emailNoti: data.Items[0].google_user_email,
+                        });
+                      }
+
+                      if (!existCalendarName) {
+                        var paramsRemove = {
+                          TableName: "test-kintone-google-users",
+                          Key: {
+                            id: data.Items[0].id.toString(),
+                          },
+                        };
+                        dynamodb.delete(paramsRemove, function (err, data) {
+                          if (err) {
+                            sendSystemMailBaseOnDomain({
+                              domain: body.domain,
+                              error: err,
+                              errorType: errorCode.SYS_01,
+                            });
+                            reject(err);
+                          } else {
+                            resolve({ error: "Not exist name" });
                           }
                         });
-                        if (!existCalendarName) {
-                          var paramsRemove = {
-                            TableName: "test-kintone-google-users",
-                            Key: {
-                              id: data.Items[0].id.toString(),
-                            },
-                          };
-                          dynamodb.delete(paramsRemove, function (err, data) {
-                            if (err) {
-                              sendSystemMailBaseOnDomain({
-                                domain: body.domain,
-                                error: err,
-                                errorType: errorCode.SYS_01,
-                              });
-                              reject(err);
-                            } else {
-                              resolve({ error: "Not exist name" });
-                            }
-                          });
-                        } else {
-                          var url =
-                            "https://www.googleapis.com/calendar/v3/calendars/" +
-                            calendarId +
-                            "/events/watch";
-                          var info = {
-                            id: data.Items[0].channel_id,
-                            type: "web_hook",
-                            address: urlWatch,
-                            params: {
-                              ttl: 2591000,
-                            },
-                          };
-                          var opt = {
-                            method: "POST",
-                            headers: {
-                              Authorization:
-                                "Bearer " + data.Items[0].google_access_token,
-                              "Content-Type": "application/json",
-                              Accept: "application/json",
-                            },
-                            data: JSON.stringify(info),
-                            url: url,
-                          };
-                          axios(opt)
-                            .then((response) => {
-                              var params = {
-                                TableName: "test-kintone-google-users",
-                                Key: {
-                                  id: data.Items[0].id.toString(),
-                                },
-                                UpdateExpression:
-                                  "set google_calendar_id=:google_calendar_id",
-                                ExpressionAttributeValues: {
-                                  ":google_calendar_id": calendarId.toString(),
-                                },
-                                ReturnValues: "UPDATED_NEW",
-                              };
-                              dynamodb.update(params, function (err, data) {
-                                if (err) {
-                                  sendSystemMailBaseOnDomain({
-                                    domain: body.domain,
-                                    error: err,
-                                    errorType: errorCode.SYS_01,
-                                  });
-                                  reject(err);
-                                } else {
-                                  resolve({ status: "success" });
-                                }
-                              });
-                            })
-                            .catch((err) => {
-                              sendSyncMail({
-                                domain: body.domain,
-                                errorType: errorCode.SYN_08,
-                                emailNoti: body.userEmail,
-                              });
-                              reject(err.response);
+                      } else {
+                        var url =
+                          "https://www.googleapis.com/calendar/v3/calendars/" +
+                          calendarId +
+                          "/events/watch";
+                        var info = {
+                          id: data.Items[0].channel_id,
+                          type: "web_hook",
+                          address: urlWatch,
+                          params: {
+                            ttl: 2591000,
+                          },
+                        };
+                        var opt = {
+                          method: "POST",
+                          headers: {
+                            Authorization:
+                              "Bearer " + data.Items[0].google_access_token,
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                          },
+                          data: JSON.stringify(info),
+                          url: url,
+                        };
+                        axios(opt)
+                          .then((response) => {
+                            var params = {
+                              TableName: "test-kintone-google-users",
+                              Key: {
+                                id: data.Items[0].id.toString(),
+                              },
+                              UpdateExpression:
+                                "set google_calendar_id=:google_calendar_id next_sync_token=:nextSyncToken",
+                              ExpressionAttributeValues: {
+                                ":google_calendar_id": calendarId.toString(),
+                                ":nextSyncToken": nextSyncToken,
+                              },
+                              ReturnValues: "UPDATED_NEW",
+                            };
+                            dynamodb.update(params, function (err, data) {
+                              if (err) {
+                                sendSystemMailBaseOnDomain({
+                                  domain: body.domain,
+                                  error: err,
+                                  errorType: errorCode.SYS_01,
+                                });
+                                reject(err);
+                              } else {
+                                resolve({ status: "success" });
+                              }
                             });
-                        }
+                          })
+                          .catch((err) => {
+                            sendSyncMail({
+                              domain: body.domain,
+                              errorType: errorCode.SYN_08,
+                              emailNoti: body.userEmail,
+                            });
+                            reject(err.response);
+                          });
                       }
-                    });
-                  })
-                  .catch((err) => {
-                    sendSyncMail({
-                      domain: body.domain,
-                      errorType: errorCode.SYN_08,
-                      emailNoti: body.userEmail,
-                    });
-                    reject(err);
+                    }
                   });
-              } else {
-                var url =
-                  "https://www.googleapis.com/calendar/v3/calendars/" +
-                  data.Items[0].google_user_email +
-                  "/events/watch";
-                var info = {
-                  id: data.Items[0].channel_id,
-                  type: "web_hook",
-                  address: urlWatch,
-                  params: {
-                    ttl: 2591000,
-                  },
-                };
-                var opt = {
-                  method: "POST",
-                  headers: {
-                    Authorization:
-                      "Bearer " + data.Items[0].google_access_token,
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                  },
-                  data: JSON.stringify(info),
-                  url: url,
-                };
-                console.log("opt", JSON.stringify(opt, null, 2));
-                axios(opt)
-                  .then((response) => {
-                    console.log("successs1");
-                    resolve({ status: "success" });
-                  })
-                  .catch((err) => {
-                    console.log("fail1");
-                    console.log(err);
+                } else {
+                  var nextSyncToken = "";
+
+                  try {
+                    nextSyncToken = await getNextSyncToken(
+                      data.Items[0].google_user_email,
+                      data.Items[0].google_access_token
+                    );
+                  } catch (err) {
+                    console.log("getNextSyncToken fail", err);
                     sendSyncMail({
-                      domain: body.domain,
+                      domain: data.Items[0].domain,
                       errorType: errorCode.SYN_08,
-                      emailNoti: body.userEmail,
+                      emailNoti: data.Items[0].google_user_email,
                     });
-                    reject(err.response.statusText);
+                  }
+
+                  var params = {
+                    TableName: "test-kintone-google-users",
+                    Key: {
+                      id: data.Items[0].id.toString(),
+                    },
+                    UpdateExpression: "set next_sync_token=:nextSyncToken",
+                    ExpressionAttributeValues: {
+                      ":nextSyncToken": nextSyncToken,
+                    },
+                    ReturnValues: "UPDATED_NEW",
+                  };
+                  dynamodb.update(params, function (err, data) {
+                    if (err) {
+                      sendSystemMailBaseOnDomain({
+                        domain: body.domain,
+                        error: err,
+                        errorType: errorCode.SYS_01,
+                      });
+                    } else {
+                      console.log("新規nextSyncToken保存成功");
+                    }
                   });
+
+                  var url =
+                    "https://www.googleapis.com/calendar/v3/calendars/" +
+                    data.Items[0].google_user_email +
+                    "/events/watch";
+                  var info = {
+                    id: data.Items[0].channel_id,
+                    type: "web_hook",
+                    address: urlWatch,
+                    params: {
+                      ttl: 2591000,
+                    },
+                  };
+                  var opt = {
+                    method: "POST",
+                    headers: {
+                      Authorization:
+                        "Bearer " + data.Items[0].google_access_token,
+                      "Content-Type": "application/json",
+                      Accept: "application/json",
+                    },
+                    data: JSON.stringify(info),
+                    url: url,
+                  };
+                  console.log("opt", JSON.stringify(opt, null, 2));
+                  axios(opt)
+                    .then((response) => {
+                      console.log("successs1");
+                      resolve({ status: "success" });
+                    })
+                    .catch((err) => {
+                      console.log("fail1");
+                      console.log(err);
+                      sendSyncMail({
+                        domain: body.domain,
+                        errorType: errorCode.SYN_08,
+                        emailNoti: body.userEmail,
+                      });
+                      reject(err.response.statusText);
+                    });
+                }
+                // }
               }
-              // }
             }
-          });
+          );
         } else {
           reject("error");
         }
@@ -2794,34 +2854,36 @@ const listEvents = async (auth, config) => {
 
           axios(opt)
             .then((response) => {
-              let next_sync_token = response.data.nextSyncToken;
-              let update_param = {
-                TableName: "test-kintone-google-users",
-                Key: {
-                  id: config.id.toString(),
-                },
-                UpdateExpression: "set next_sync_token = :nextSyncToken",
-                ExpressionAttributeValues: {
-                  ":nextSyncToken": next_sync_token,
-                },
-                ReturnValues: "UPDATED_NEW",
-              };
-              dynamodb.update(update_param, function (err, dataUser) {
-                if (err) {
-                  console.log("update error", err);
-                  sendSystemMailBaseOnDomain({
-                    domain: domain,
-                    error: err,
-                    errorType: errorCode.SYS_01,
-                  });
-                } else {
-                  console.log("next sync token update success");
-                }
-              });
               let events = response.data.items;
               console.log("all event", JSON.stringify(events));
               console.log("event length: ", events.length);
               if (events.length) {
+                //dynamo dbにnext sync tokenをupdate
+                let next_sync_token = response.data.nextSyncToken;
+                let update_param = {
+                  TableName: "test-kintone-google-users",
+                  Key: {
+                    id: config.id.toString(),
+                  },
+                  UpdateExpression: "set next_sync_token = :nextSyncToken",
+                  ExpressionAttributeValues: {
+                    ":nextSyncToken": next_sync_token,
+                  },
+                  ReturnValues: "UPDATED_NEW",
+                };
+                dynamodb.update(update_param, function (err, dataUser) {
+                  if (err) {
+                    console.log("update error", err);
+                    sendSystemMailBaseOnDomain({
+                      domain: domain,
+                      error: err,
+                      errorType: errorCode.SYS_01,
+                    });
+                  } else {
+                    console.log("next sync token update success");
+                  }
+                });
+
                 var arrRecordDelete = [];
                 var arrRecordUpdate = [];
                 var arrRecordInsert = [];
@@ -4069,3 +4131,23 @@ const listEventsPromise = (params, calendar) => {
 //   } while (typeof data.nextPageToken != "undefined");
 //   return listResults;
 // };
+
+const getNextSyncToken = async function (calendarId, accessToken) {
+  let url =
+    "https://www.googleapis.com/calendar/v3/calendars/" +
+    calendarId +
+    "/events";
+
+  let opt = {
+    method: "GET",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    url: url,
+  };
+
+  let response = await axios(opt);
+  return response.data.nextSyncToken;
+};
