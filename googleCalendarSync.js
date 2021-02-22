@@ -2327,16 +2327,19 @@ const checkLoginGoogle = async (body) => {
                         };
                         axios(opt)
                           .then((response) => {
+                            let resource_id = response.data.resourceId;
                             var params = {
                               TableName: "test-kintone-google-users",
                               Key: {
                                 id: data.Items[0].id.toString(),
                               },
                               UpdateExpression:
-                                "set google_calendar_id=:google_calendar_id next_sync_token=:nextSyncToken",
+                                "set google_calendar_id=:google_calendar_id, next_sync_token=:nextSyncToken, resource_id=:resource_id",
+
                               ExpressionAttributeValues: {
                                 ":google_calendar_id": calendarId.toString(),
                                 ":nextSyncToken": nextSyncToken,
+                                ":resource_id": resource_id,
                               },
                               ReturnValues: "UPDATED_NEW",
                             };
@@ -2381,29 +2384,6 @@ const checkLoginGoogle = async (body) => {
                     });
                   }
 
-                  var params = {
-                    TableName: "test-kintone-google-users",
-                    Key: {
-                      id: data.Items[0].id.toString(),
-                    },
-                    UpdateExpression: "set next_sync_token=:nextSyncToken",
-                    ExpressionAttributeValues: {
-                      ":nextSyncToken": nextSyncToken,
-                    },
-                    ReturnValues: "UPDATED_NEW",
-                  };
-                  dynamodb.update(params, function (err, data) {
-                    if (err) {
-                      sendSystemMailBaseOnDomain({
-                        domain: body.domain,
-                        error: err,
-                        errorType: errorCode.SYS_01,
-                      });
-                    } else {
-                      console.log("新規nextSyncToken保存成功");
-                    }
-                  });
-
                   var url =
                     "https://www.googleapis.com/calendar/v3/calendars/" +
                     data.Items[0].google_user_email +
@@ -2430,6 +2410,35 @@ const checkLoginGoogle = async (body) => {
                   console.log("opt", JSON.stringify(opt, null, 2));
                   axios(opt)
                     .then((response) => {
+                      let resource_id = response.data.resourceId;
+
+                      var params = {
+                        TableName: "test-kintone-google-users",
+                        Key: {
+                          id: data.Items[0].id.toString(),
+                        },
+                        UpdateExpression:
+                          "set next_sync_token=:nextSyncToken, resource_id=:resource_id",
+                        ExpressionAttributeValues: {
+                          ":nextSyncToken": nextSyncToken,
+                          ":resource_id": resource_id,
+                        },
+                        ReturnValues: "UPDATED_NEW",
+                      };
+                      dynamodb.update(params, function (err, data) {
+                        if (err) {
+                          sendSystemMailBaseOnDomain({
+                            domain: body.domain,
+                            error: err,
+                            errorType: errorCode.SYS_01,
+                          });
+                        } else {
+                          console.log(
+                            "新規ユーザー nextSynkToken resource_id 保存成功"
+                          );
+                        }
+                      });
+
                       console.log("successs1");
                       resolve({ status: "success" });
                     })
