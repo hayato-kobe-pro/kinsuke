@@ -2830,7 +2830,7 @@ const listEvents = async (auth, config) => {
             lastTime.getMinutes(),
             lastTime.getSeconds() - 10
           );
-          console.log(lastTime.toISOString()); //debug
+          console.log(lastTime.toISOString());  //debug
 
           let res = await getAccesstoken(config.google_refresh_token);
           let accessToken = res;
