@@ -2681,27 +2681,32 @@ const getAccesstoken = (refreshToken) => {
 };
 
 // Get accessToken in Kintone by refreshToken
-const getAccesstokenKintone = (domain, kintoneClientId, kintoneClientSecret, kintoneRefreshToken) => {
-  return new Promise(function(resolve, reject) {
+const getAccesstokenKintone = (
+  domain,
+  kintoneClientId,
+  kintoneClientSecret,
+  kintoneRefreshToken
+) => {
+  return new Promise(function (resolve, reject) {
     const data = {
       client_id: kintoneClientId,
       client_secret: kintoneClientSecret,
       refresh_token: kintoneRefreshToken,
-      grant_type: 'refresh_token'
+      grant_type: "refresh_token",
     };
     const options = {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
       data: qs.stringify(data),
-      url: 'https://' + domain + '/oauth2/token'
+      url: "https://" + domain + "/oauth2/token",
     };
-    console.log("getAcceesstokenkintone",options)
-    axios(options).then(response => {
-      console.log(options)
-      resolve(response.data);
-    }).catch(function (error) {
-      reject(error);
-    });
+    axios(options)
+      .then((response) => {
+        resolve(response.data);
+      })
+      .catch(function (error) {
+        reject(error);
+      });
   });
 };
 
@@ -2757,441 +2762,408 @@ const listEvents = async (auth, config) => {
             lastTime.getSeconds() - 10
           );
           console.log(lastTime.toISOString()); //debug
-          getAccesstoken(config.google_refresh_token)
-            .then(function (res) {
-              var accessToken = res;
 
-              var calendarId = "";
-              if (
-                config.google_calendar_id != undefined &&
-                config.google_calendar_id
-              ) {
-                calendarId = config.google_calendar_id;
-              } else {
-                calendarId = config.google_user_email;
-              }
+          let res = await getAccesstoken(config.google_refresh_token);
+          let accessToken = res;
+          var calendarId = "";
 
-              var url =
-                "https://www.googleapis.com/calendar/v3/calendars/" +
-                calendarId +
-                "/events?singleEvents=true&showDeleted=true";
+          if (
+            config.google_calendar_id != undefined &&
+            config.google_calendar_id
+          ) {
+            calendarId = config.google_calendar_id;
+          } else {
+            calendarId = config.google_user_email;
+          }
 
-              var syncToken = config.next_sync_token;
-              var opt = {
-                method: "GET",
-                headers: {
-                  Authorization: "Bearer " + accessToken.access_token,
-                  "Content-Type": "application/json",
-                  Accept: "application/json",
+          let url =
+            "https://www.googleapis.com/calendar/v3/calendars/" +
+            calendarId +
+            "/events?singleEvents=true&showDeleted=true";
+
+          let syncToken = config.next_sync_token;
+          let opt = {
+            method: "GET",
+            headers: {
+              Authorization: "Bearer " + accessToken.access_token,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            url: url + `&syncToken=${syncToken}`,
+          };
+
+          axios(opt)
+            .then((response) => {
+              let next_sync_token = response.data.nextSyncToken;
+              let update_param = {
+                TableName: "test-kintone-google-users",
+                Key: {
+                  id: config.id.toString(),
                 },
-                url: url + `&syncToken=${syncToken}`,
+                UpdateExpression: "set next_sync_token = :nextSyncToken",
+                ExpressionAttributeValues: {
+                  ":nextSyncToken": next_sync_token,
+                },
+                ReturnValues: "UPDATED_NEW",
               };
-              console.log("opt", opt)
-              axios(opt)  
-                .then((response) => {
-                  let next_sync_token = response.data.nextSyncToken;
-                  let update_param = {
-                    TableName: "test-kintone-google-users",
-                    Key: {
-                      id: config.id.toString(),
-                    },
-                    UpdateExpression: "set next_sync_token = :nextSyncToken",
-                    ExpressionAttributeValues: {
-                      ":nextSyncToken": next_sync_token,
-                    },
-                    ReturnValues: "UPDATED_NEW",
-                  };
-                  console.log("update param", update_param);
-                  dynamodb.update(update_param, function (err, dataUser) {
-                    if (err) {
-                      console.log("update error", err)
-                      sendSystemMailBaseOnDomain({
-                        domain: config.domain_name,
-                        error: err,
-                        errorType: errorCode.SYS_01,
-                      });
-                      reject(err);
-                    } else {
-                      console.log("update成功");
-                    }
-                  });
+              console.log("update param", update_param);
 
-                  let events = response.data.items;
-                  console.log("all event", JSON.stringify(events));
-                  console.log("event length: ", events.length);
-                  if (events.length) {
-                    var arrRecordDelete = [];
-                    var arrRecordUpdate = [];
-                    var arrRecordInsert = [];
-                    console.log("domain",domain)
-                    console.log("dataDb.Item kintone",dataDb.Item)
-                    
-                    getAccesstokenKintone(
-                      domain,
-                      kintoneClientId,
-                      kintoneClientSecret,
-                      kintoneRefreshToken
-                    )
-                      .then(async (response) => {
-                        var kintoneAccessToken = response.access_token;
-                        var arrRepeat = [];
-                        var titleDeleteError = "";
-                        for (
-                          let indexEvent = 0;
-                          indexEvent < events.length;
-                          indexEvent++
+              dynamodb.update(update_param, function (err, dataUser) {
+                if (err) {
+                  console.log("update error", err);
+                  sendSystemMailBaseOnDomain({
+                    domain: config.domain_name,
+                    error: err,
+                    errorType: errorCode.SYS_01,
+                  });
+                } else {
+                  console.log("update成功");
+                }
+              });
+              let events = response.data.items;
+              console.log("all event", JSON.stringify(events));
+              console.log("event length: ", events.length);
+              if (events.length) {
+                var arrRecordDelete = [];
+                var arrRecordUpdate = [];
+                var arrRecordInsert = [];
+                getAccesstokenKintone(
+                  domain,
+                  kintoneClientId,
+                  kintoneClientSecret,
+                  kintoneRefreshToken
+                )
+                  .then(async (response) => {
+                    var kintoneAccessToken = response.access_token;
+                    var arrRepeat = [];
+                    var titleDeleteError = "";
+                    for (
+                      let indexEvent = 0;
+                      indexEvent < events.length;
+                      indexEvent++
+                    ) {
+                      if (events[indexEvent].recurringEventId != undefined) {
+                        if (
+                          arrRepeat[events[indexEvent].recurringEventId] ==
+                          undefined
                         ) {
-                          if (
-                            events[indexEvent].recurringEventId != undefined
-                          ) {
-                            if (
-                              arrRepeat[events[indexEvent].recurringEventId] ==
-                              undefined
-                            ) {
-                              arrRepeat[
-                                events[indexEvent].recurringEventId
-                              ] = uuid();
-                            }
-                          }
+                          arrRepeat[
+                            events[indexEvent].recurringEventId
+                          ] = uuid();
                         }
-                        try {
-                          var arrPromise = [];
-                          // sleep(3000).then(() => {
-                          for (
-                            let indexEvent = 0;
-                            indexEvent < events.length;
-                            indexEvent++
-                          ) {
-                            console.log(
-                              "event Gooogle",
-                              JSON.stringify(events[indexEvent])
-                            );
-                            console.log(
-                              "recurringEventId",
-                              events[indexEvent].recurringEventId
-                            );
-                            if (
-                              events[indexEvent].creator &&
-                              events[indexEvent].creator.email ==
-                                config.google_user_email &&
-                              !events[indexEvent].recurringEventId
-                            ) {
-                              let syncEvent = syncGoogleToKintone(
-                                domain,
-                                appId,
-                                kintoneAccessToken,
-                                events,
-                                indexEvent,
-                                mappingFields,
-                                kintoneUserId,
-                                kintoneUserCode,
-                                kintoneUserName,
-                                calendarPlugin,
-                                arrRepeat,
-                                dataLogin,
-                                timeZoneUser,
-                                userInfo
-                              )
-                                .then((data) => {
-                                  if (data.delete != undefined) {
-                                    arrRecordDelete.push(data.delete.id);
-                                    titleDeleteError = data.delete.title;
-                                  } else if (data.update != undefined) {
-                                    arrRecordUpdate.push(data.update);
-                                  } else if (data.insert != undefined) {
-                                    arrRecordInsert.push(data.insert);
-                                  }
-                                })
-                                .catch((err) => {
-                                  console.log(err);
-                                });
-                              arrPromise.push(syncEvent);
-                            }
-                          }
-                          Promise.all(arrPromise)
-                            .then(async () => {
-                              getAccesstokenKintone(
-                                domain,
-                                kintoneClientId,
-                                kintoneClientSecret,
-                                kintoneRefreshToken
-                              ).then(async (res) => {
-                                var kintoneAccessToken = res.access_token;
-                                if (arrRecordUpdate.length > 0) {
-                                  for (let index = 1; index < 2; index++) {
-                                    let arrUpdate = arrRecordUpdate.filter(
-                                      (element, idx) =>
-                                        idx >= 50 * (index - 1) &&
-                                        idx < 50 * index
-                                    );
-                                    var records = {
-                                      app: appId,
-                                      records: arrUpdate,
-                                    };
-                                    console.log(
-                                      "arr update",
-                                      JSON.stringify(arrUpdate)
-                                    );
-                                    var headers = {
-                                      Authorization: `Bearer ${kintoneAccessToken}`,
-                                      "Content-Type": "application/json",
-                                      Accept: "application/json",
-                                    };
-                                    var options = {
-                                      url:
-                                        "https://" +
-                                        domain +
-                                        "/k/v1/records.json",
-                                      method: "PUT",
-                                      headers: headers,
-                                      json: true,
-                                      body: records,
-                                    };
-                                    await new Promise(function (res, rej) {
-                                      request(
-                                        options,
-                                        function (error, response, body) {
-                                          console.log(JSON.stringify(body));
-                                          if (
-                                            !error &&
-                                            body.records != undefined
-                                          ) {
-                                            res(body);
-                                          } else {
-                                            console.log("Update fail", error);
-                                            sendSyncMail({
-                                              domain,
-                                              errorType: errorCode.SYN_02,
-                                              emailNoti: dataDb.Item.user_email,
-                                              subject:
-                                                arrRecordUpdate[0].record[
-                                                  [mappingFields.summary]
-                                                ].value,
-                                            });
-                                            rej(error);
-                                          }
-                                        }
-                                      );
-                                    }).catch((err) => {
-                                      reject(err);
-                                    });
-                                    if (
-                                      Math.floor(
-                                        arrRecordUpdate.length / (50 * index)
-                                      ) == 0 ||
-                                      index * 50 == arrRecordUpdate.length
-                                    ) {
-                                      break;
-                                    }
-                                  }
-                                }
-                                if (arrRecordInsert.length > 0) {
-                                  for (let index = 1; index < 2; index++) {
-                                    let arrInsert = arrRecordInsert.filter(
-                                      (element, idx) =>
-                                        idx >= 50 * (index - 1) &&
-                                        idx < 50 * index
-                                    );
-                                    var records = {
-                                      app: appId,
-                                      records: arrInsert,
-                                    };
-                                    var headers = {
-                                      Authorization: `Bearer ${kintoneAccessToken}`,
-                                      "Content-Type": "application/json",
-                                      Accept: "application/json",
-                                    };
-                                    var options = {
-                                      url:
-                                        "https://" +
-                                        domain +
-                                        "/k/v1/records.json",
-                                      method: "POST",
-                                      headers: headers,
-                                      json: true,
-                                      body: records,
-                                    };
-                                    console.log(
-                                      "insert",
-                                      JSON.stringify(records)
-                                    );
-                                    await new Promise(function (res, rej) {
-                                      request(
-                                        options,
-                                        async function (error, response, body) {
-                                          if (
-                                            !error &&
-                                            body.ids != undefined &&
-                                            body.ids.length > 0
-                                          ) {
-                                            var ids = body.ids;
-                                            for (
-                                              let index = 0;
-                                              index < ids.length;
-                                              index++
-                                            ) {
-                                              var event =
-                                                arrRecordInsert[index][
-                                                  "eventGoogle"
-                                                ];
-                                              event["extendedProperties"] = {
-                                                private: {
-                                                  kintoneRecordId: ids[index],
-                                                },
-                                              };
-                                              await updateEvent(
-                                                auth,
-                                                calendarId,
-                                                event.id,
-                                                event
-                                              )
-                                                .then(function (res) {
-                                                  console.log(
-                                                    "update id",
-                                                    index
-                                                  );
-                                                  console.log(res);
-                                                })
-                                                .catch((err) => {
-                                                  console.log("err", err);
-                                                });
-                                            }
-                                            console.log("insert success");
-                                            res(body);
-                                          } else {
-                                            sendSyncMail({
-                                              domain,
-                                              errorType: errorCode.SYN_01,
-                                              emailNoti: dataDb.Item.user_email,
-                                              subject:
-                                                arrRecordInsert[0][
-                                                  [mappingFields.summary]
-                                                ].value,
-                                            });
-                                            console.log("insert Error", error);
-                                            rej(error);
-                                          }
-                                        }
-                                      );
-                                    }).catch((err) => {
-                                      reject(err);
-                                    });
-                                    if (
-                                      Math.floor(
-                                        arrRecordInsert.length / (50 * index)
-                                      ) == 0 ||
-                                      index * 50 == arrRecordInsert.length
-                                    ) {
-                                      break;
-                                    }
-                                  }
-                                }
-                                if (arrRecordDelete.length > 0) {
-                                  for (let index = 1; index < 2; index++) {
-                                    let arrDelete = arrRecordDelete.filter(
-                                      (element, idx) =>
-                                        idx >= 50 * (index - 1) &&
-                                        idx < 50 * index
-                                    );
-                                    console.log(
-                                      "delete Ev",
-                                      JSON.stringify(arrDelete)
-                                    );
-                                    var query = {
-                                      app: appId,
-                                      ids: arrDelete,
-                                    };
-                                    var headers = {
-                                      Authorization: `Bearer ${kintoneAccessToken}`,
-                                      "Content-Type":
-                                        "application/x-www-form-urlencoded",
-                                    };
-                                    var options = {
-                                      url:
-                                        "https://" +
-                                        domain +
-                                        "/k/v1/records.json",
-                                      method: "DELETE",
-                                      headers: headers,
-                                      qs: query,
-                                    };
-                                    await new Promise(function (res, rej) {
-                                      request(
-                                        options,
-                                        function (error, response, body) {
-                                          if (!error) {
-                                            console.log(
-                                              "detele success",
-                                              JSON.stringify(body)
-                                            );
-                                            res(body);
-                                          } else {
-                                            sendSyncMail({
-                                              domain,
-                                              errorType: errorCode.SYN_03,
-                                              emailNoti: dataDb.Item.user_email,
-                                              subject: titleDeleteError,
-                                            });
-                                            console.log("delete Error", error);
-                                            rej(error);
-                                          }
-                                        }
-                                      );
-                                    }).catch((err) => {
-                                      reject(err);
-                                    });
-                                    if (
-                                      Math.floor(
-                                        arrRecordDelete.length / (50 * index)
-                                      ) == 0 ||
-                                      index * 50 == arrRecordDelete.length
-                                    ) {
-                                      break;
-                                    }
-                                  }
-                                }
-                                resolve();
-                              });
+                      }
+                    }
+                    try {
+                      var arrPromise = [];
+                      // sleep(3000).then(() => {
+                      for (
+                        let indexEvent = 0;
+                        indexEvent < events.length;
+                        indexEvent++
+                      ) {
+                        console.log(
+                          "event Gooogle",
+                          JSON.stringify(events[indexEvent])
+                        );
+                        console.log(
+                          "recurringEventId",
+                          events[indexEvent].recurringEventId
+                        );
+                        if (
+                          events[indexEvent].creator &&
+                          events[indexEvent].creator.email ==
+                            config.google_user_email &&
+                          !events[indexEvent].recurringEventId
+                        ) {
+                          let syncEvent = syncGoogleToKintone(
+                            domain,
+                            appId,
+                            kintoneAccessToken,
+                            events,
+                            indexEvent,
+                            mappingFields,
+                            kintoneUserId,
+                            kintoneUserCode,
+                            kintoneUserName,
+                            calendarPlugin,
+                            arrRepeat,
+                            dataLogin,
+                            timeZoneUser,
+                            userInfo
+                          )
+                            .then((data) => {
+                              if (data.delete != undefined) {
+                                arrRecordDelete.push(data.delete.id);
+                                titleDeleteError = data.delete.title;
+                              } else if (data.update != undefined) {
+                                arrRecordUpdate.push(data.update);
+                              } else if (data.insert != undefined) {
+                                arrRecordInsert.push(data.insert);
+                              }
                             })
                             .catch((err) => {
-                              reject(err);
+                              console.log(err);
                             });
-                          // });
-                        } catch (err) {
-                          reject();
+                          arrPromise.push(syncEvent);
                         }
-                      })
-                      .catch((err) => {
-                        console.log("kintone同期error", err)
-                        sendSyncMail({
-                          domain,
-                          errorType: errorCode.SYN_07,
-                          emailNoti: dataDb.Item.user_email,
+                      }
+                      Promise.all(arrPromise)
+                        .then(async () => {
+                          getAccesstokenKintone(
+                            domain,
+                            kintoneClientId,
+                            kintoneClientSecret,
+                            kintoneRefreshToken
+                          ).then(async (res) => {
+                            var kintoneAccessToken = res.access_token;
+                            if (arrRecordUpdate.length > 0) {
+                              for (let index = 1; index < 2; index++) {
+                                let arrUpdate = arrRecordUpdate.filter(
+                                  (element, idx) =>
+                                    idx >= 50 * (index - 1) && idx < 50 * index
+                                );
+                                var records = {
+                                  app: appId,
+                                  records: arrUpdate,
+                                };
+                                console.log(
+                                  "arr update",
+                                  JSON.stringify(arrUpdate)
+                                );
+                                var headers = {
+                                  Authorization: `Bearer ${kintoneAccessToken}`,
+                                  "Content-Type": "application/json",
+                                  Accept: "application/json",
+                                };
+                                var options = {
+                                  url:
+                                    "https://" + domain + "/k/v1/records.json",
+                                  method: "PUT",
+                                  headers: headers,
+                                  json: true,
+                                  body: records,
+                                };
+                                await new Promise(function (res, rej) {
+                                  request(
+                                    options,
+                                    function (error, response, body) {
+                                      console.log(JSON.stringify(body));
+                                      if (!error && body.records != undefined) {
+                                        res(body);
+                                      } else {
+                                        console.log("Update fail", error);
+                                        sendSyncMail({
+                                          domain,
+                                          errorType: errorCode.SYN_02,
+                                          emailNoti: dataDb.Item.user_email,
+                                          subject:
+                                            arrRecordUpdate[0].record[
+                                              [mappingFields.summary]
+                                            ].value,
+                                        });
+                                        rej(error);
+                                      }
+                                    }
+                                  );
+                                }).catch((err) => {
+                                  reject(err);
+                                });
+                                if (
+                                  Math.floor(
+                                    arrRecordUpdate.length / (50 * index)
+                                  ) == 0 ||
+                                  index * 50 == arrRecordUpdate.length
+                                ) {
+                                  break;
+                                }
+                              }
+                            }
+                            if (arrRecordInsert.length > 0) {
+                              for (let index = 1; index < 2; index++) {
+                                let arrInsert = arrRecordInsert.filter(
+                                  (element, idx) =>
+                                    idx >= 50 * (index - 1) && idx < 50 * index
+                                );
+                                var records = {
+                                  app: appId,
+                                  records: arrInsert,
+                                };
+                                var headers = {
+                                  Authorization: `Bearer ${kintoneAccessToken}`,
+                                  "Content-Type": "application/json",
+                                  Accept: "application/json",
+                                };
+                                var options = {
+                                  url:
+                                    "https://" + domain + "/k/v1/records.json",
+                                  method: "POST",
+                                  headers: headers,
+                                  json: true,
+                                  body: records,
+                                };
+                                console.log("insert", JSON.stringify(records));
+                                await new Promise(function (res, rej) {
+                                  request(
+                                    options,
+                                    async function (error, response, body) {
+                                      if (
+                                        !error &&
+                                        body.ids != undefined &&
+                                        body.ids.length > 0
+                                      ) {
+                                        var ids = body.ids;
+                                        for (
+                                          let index = 0;
+                                          index < ids.length;
+                                          index++
+                                        ) {
+                                          var event =
+                                            arrRecordInsert[index][
+                                              "eventGoogle"
+                                            ];
+                                          event["extendedProperties"] = {
+                                            private: {
+                                              kintoneRecordId: ids[index],
+                                            },
+                                          };
+                                          await updateEvent(
+                                            auth,
+                                            calendarId,
+                                            event.id,
+                                            event
+                                          )
+                                            .then(function (res) {
+                                              console.log("update id", index);
+                                              console.log(res);
+                                            })
+                                            .catch((err) => {
+                                              console.log("err", err);
+                                            });
+                                        }
+                                        console.log("insert success");
+                                        res(body);
+                                      } else {
+                                        sendSyncMail({
+                                          domain,
+                                          errorType: errorCode.SYN_01,
+                                          emailNoti: dataDb.Item.user_email,
+                                          subject:
+                                            arrRecordInsert[0][
+                                              [mappingFields.summary]
+                                            ].value,
+                                        });
+                                        console.log("insert Error", error);
+                                        rej(error);
+                                      }
+                                    }
+                                  );
+                                }).catch((err) => {
+                                  reject(err);
+                                });
+                                if (
+                                  Math.floor(
+                                    arrRecordInsert.length / (50 * index)
+                                  ) == 0 ||
+                                  index * 50 == arrRecordInsert.length
+                                ) {
+                                  break;
+                                }
+                              }
+                            }
+                            if (arrRecordDelete.length > 0) {
+                              for (let index = 1; index < 2; index++) {
+                                let arrDelete = arrRecordDelete.filter(
+                                  (element, idx) =>
+                                    idx >= 50 * (index - 1) && idx < 50 * index
+                                );
+                                console.log(
+                                  "delete Ev",
+                                  JSON.stringify(arrDelete)
+                                );
+                                var query = {
+                                  app: appId,
+                                  ids: arrDelete,
+                                };
+                                var headers = {
+                                  Authorization: `Bearer ${kintoneAccessToken}`,
+                                  "Content-Type":
+                                    "application/x-www-form-urlencoded",
+                                };
+                                var options = {
+                                  url:
+                                    "https://" + domain + "/k/v1/records.json",
+                                  method: "DELETE",
+                                  headers: headers,
+                                  qs: query,
+                                };
+                                await new Promise(function (res, rej) {
+                                  request(
+                                    options,
+                                    function (error, response, body) {
+                                      if (!error) {
+                                        console.log(
+                                          "detele success",
+                                          JSON.stringify(body)
+                                        );
+                                        res(body);
+                                      } else {
+                                        sendSyncMail({
+                                          domain,
+                                          errorType: errorCode.SYN_03,
+                                          emailNoti: dataDb.Item.user_email,
+                                          subject: titleDeleteError,
+                                        });
+                                        console.log("delete Error", error);
+                                        rej(error);
+                                      }
+                                    }
+                                  );
+                                }).catch((err) => {
+                                  reject(err);
+                                });
+                                if (
+                                  Math.floor(
+                                    arrRecordDelete.length / (50 * index)
+                                  ) == 0 ||
+                                  index * 50 == arrRecordDelete.length
+                                ) {
+                                  break;
+                                }
+                              }
+                            }
+                            resolve();
+                          });
+                        })
+                        .catch((err) => {
+                          reject(err);
                         });
-                        console.log(err);
-                        reject(err);
-                      });
-                  } else {
-                    console.log("No upcoming events found.");
-                    reject();
-                  }
-                })
-                .catch((err) => {
-                  console.log(err);
-                  sendSyncMail({
-                    domain,
-                    errorType: errorCode.SYN_08,
-                    emailNoti: dataDb.Item.user_email,
+                      // });
+                    } catch (err) {
+                      reject();
+                    }
+                  })
+                  .catch((err) => {
+                    sendSyncMail({
+                      domain,
+                      errorType: errorCode.SYN_07,
+                      emailNoti: dataDb.Item.user_email,
+                    });
+                    console.log(err);
+                    reject(err);
                   });
-                  reject(err);
-                });
+              } else {
+                console.log("No upcoming events found.");
+                reject();
+              }
             })
-            .catch(function (err) {
-              sendSystemMailBaseOnDomain({
-                domain: config.domain_name,
-                error: err,
-                errorType: errorCode.SYS_01,
+            .catch((err) => {
+              console.log(err);
+              sendSyncMail({
+                domain,
+                errorType: errorCode.SYN_08,
+                emailNoti: dataDb.Item.user_email,
               });
+              reject(err);
             });
         } else {
           reject("err");
@@ -4088,3 +4060,14 @@ const listEventsPromise = (params, calendar) => {
   });
 };
 
+// const listAllEvent = async (params, calendar) => {
+//   let listResults = [];
+//   let data;
+//   do {
+//     data = await listEventsPromise(params, calendar);
+//     data.items.forEach((item) => listResults.push(item));
+
+//     params.pageToken = data.nextPageToken;
+//   } while (typeof data.nextPageToken != "undefined");
+//   return listResults;
+// };
