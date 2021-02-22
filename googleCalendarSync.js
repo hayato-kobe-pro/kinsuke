@@ -2806,18 +2806,16 @@ const listEvents = async (auth, config) => {
                 },
                 ReturnValues: "UPDATED_NEW",
               };
-              console.log("update param", update_param);
-
               dynamodb.update(update_param, function (err, dataUser) {
                 if (err) {
                   console.log("update error", err);
                   sendSystemMailBaseOnDomain({
-                    domain: config.domain_name,
+                    domain: domain,
                     error: err,
                     errorType: errorCode.SYS_01,
                   });
                 } else {
-                  console.log("update成功");
+                  console.log("next sync token update success");
                 }
               });
               let events = response.data.items;
