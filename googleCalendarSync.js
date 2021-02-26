@@ -125,7 +125,8 @@ const watch = async (request) => {
       },
     };
     try {
-      var data = await dynamodb.scan(params).promise();
+      var data = await scanDynamo(params)//再帰でscanします
+      // var data = await dynamodb.scan(params).promise();
     } catch (err) {
       throw err;
     }
@@ -2781,6 +2782,7 @@ const getAccesstokenKintone = (
 
 // Get list events in Google calendar just updated to sync to Kintone
 const listEvents = async (auth, config) => {
+  console.log("config テスト", 　config)
   var domain = config.domain_name;
 
   let check = await checkAuth(domain, pluginID);
@@ -2846,8 +2848,8 @@ const listEvents = async (auth, config) => {
           }
 
           let url =
-            "https://www.googleapis.com/calendar/v3/calendars/" +
-            calendarId +
+              "https://www.googleapis.com/calendar/v3/calendars/" +
+              calendarId +
             "/events?singleEvents=true&showDeleted=true";
 
           let syncToken = config.next_sync_token;
@@ -4159,4 +4161,38 @@ const getNextSyncToken = async function (calendarId, accessToken) {
 
   let response = await axios(opt);
   return response.data.nextSyncToken;
+};
+
+
+const scanDynamo = async (opt) => {
+  try {
+    // scan用のパラメーターをセット
+    const params = opt
+    // scanで取得したデータを格納する空の配列を定義しておく
+    let scan_result;
+    const scan = async () => {
+      let result = await DynamoDB.scan(params).promise();
+      if (result.Items.length > 0) {
+        scan_result = result;
+        return true;
+      }
+      // scanリクエストを行なった時にLastEvaluatedKeyがあれば、再帰的にリクエストを繰り返す
+      if (result.LastEvaluatedKey) {
+        params.ExclusiveStartKey = result.LastEvaluatedKey;
+        await scan();
+      } else {
+        return false;
+      }
+    };
+
+    let boolean = await scan();
+    if (boolean) {
+      return scan_result;
+    } else {
+      throw "can not find specified record";
+    }
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
 };
