@@ -15,6 +15,31 @@ const clientSecret = process.env.CLIENT_SECRECT;
 var result = [];
 
 exports.handler = async (event) => {
+  //再帰で有効期限の切れたレコードを取得してreturnします
+    const scanDynamo = async function (obj) {
+      try {
+        // scan用のパラメーターをセット
+        const params = obj;
+        // scanで取得したデータを格納する空の配列を定義しておく
+        let items = [];
+    
+        const scan = async () => {
+          const scan_result = await dynamodb.scan(params).promise();
+          items.push(...scan_result.Items);
+    
+          // scanリクエストを行なった時にLastEvaluatedKeyがあれば、再帰的にリクエストを繰り返す
+          if (scan_result.LastEvaluatedKey) {
+            params.ExclusiveStartKey = scan_result.LastEvaluatedKey;
+            await scan();
+          }
+        };
+    
+        await scan();
+        return items;
+      } catch (err) {
+        throw err;
+      }
+    };
   // Get accessToken in Google Calendar by refreshToken
   const getAccesstoken = (refreshToken) => {
     return new Promise(function (resolve, reject) {
@@ -40,10 +65,10 @@ exports.handler = async (event) => {
     });
   };
 
-  var tomorrow = new Date();
+  let tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow = tomorrow.toISOString();
-  var params = {
+  let params = {
     TableName: "test-stop-update-google-expires",
     ProjectionExpression:
       "id,  google_refresh_token, google_user_email, channel_expires_on, channel_id, resource_id",
@@ -55,42 +80,46 @@ exports.handler = async (event) => {
       ":tomorrow": tomorrow,
     },
   };
+  let user_records 
   try {
-    var user_records = await scanDynamo(params);
+    //再帰処理で実行する
+    user_records = await scanDynamo(params)
+    // var user_records = await dynamodb.scan(params).promise();
     console.log("scan dynamodb");
     console.log("scan contents", JSON.stringify(user_records, null, 2));
   } catch (err) {
     console.log("scan dynamodb fail");
   }
 
-  let allPromises = user_records.Items.map(async (item) => {
+  let allPromises = user_records.map(async (item) => {
     try {
       console.log("google hook start");
-      var today = new Date();
-      var tomorrow = new Date();
+      let today = new Date();
+      let tomorrow = new Date();
       tomorrow.setDate(today.getDate() + 1);
-      var channel_expires_on = new Date();
+      let channel_expires_on = new Date();
       channel_expires_on.setDate(channel_expires_on.getDate() + 30);
 
-      console.log("not sysn google to kintone");
+      console.log("not sync google to kintone");
+      let accessToken
       try {
-        var accessToken = await getAccesstoken(item.google_refresh_token);
+        accessToken = await getAccesstoken(item.google_refresh_token);
       } catch (err) {
         throw "getAccesstoken fail";
       }
 
-      var calendarId = "";
+      let calendarId = "";
       if (item.google_calendar_id != undefined && item.google_calendar_id) {
         calendarId = item.google_calendar_id;
       } else {
         calendarId = item.google_user_email;
       }
-      var channelId = uuid();
-      var url =
+      let channelId = uuid();
+      let url =
         "https://www.googleapis.com/calendar/v3/calendars/" +
         calendarId +
         "/events/watch";
-      var info = {
+      let info = {
         id: channelId,
         type: "web_hook",
         address: urlWatch,
@@ -98,7 +127,7 @@ exports.handler = async (event) => {
           ttl: 2591000,
         },
       };
-      var opt = {
+      let opt = {
         method: "POST",
         headers: {
           Authorization: "Bearer " + accessToken.access_token,
@@ -130,9 +159,13 @@ exports.handler = async (event) => {
         },
         url: url,
       };
+
+
+
+
       try {
         let stop_data = await axios(opt);
-        console.log("chanele top success", stop_data);//成功時のresponse dataはempty
+        console.log("chanele top success", stop_data.data);//成功時のresponse dataはempty
       } catch (err) {
         throw new "Post request to stop Channels fail"();
       }
@@ -177,39 +210,5 @@ exports.handler = async (event) => {
     console.log("全ての更新成功です");
   }
 };
-
-const scanDynamo = async (opt) => {
-  try {
-    // scan用のパラメーターをセット
-    const params = opt
-    // scanで取得したデータを格納する空の配列を定義しておく
-    let scan_result;
-    const scan = async () => {
-      let result = await dynamodb.scan(params).promise();
-      if (result.Items.length > 0) {
-        scan_result = result;
-        return true;
-      }
-      // scanリクエストを行なった時にLastEvaluatedKeyがあれば、再帰的にリクエストを繰り返す
-      if (result.LastEvaluatedKey) {
-        params.ExclusiveStartKey = result.LastEvaluatedKey;
-        await scan();
-      } else {
-        return false;
-      }
-    };
-
-    let boolean = await scan();
-    if (boolean) {
-      return scan_result;
-    } else {
-      throw "can not find specified record";
-    }
-  } catch (err) {
-    console.log(err);
-    throw err;
-  }
-};
-
 
 

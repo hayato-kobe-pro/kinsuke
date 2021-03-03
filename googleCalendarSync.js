@@ -125,10 +125,12 @@ const watch = async (request) => {
       },
     };
     try {
-      var data = await scanDynamo(params)//再帰でscanします
+      console.log("*** params テスト", params)
+      var data = await scanDynamo(params)
       // var data = await dynamodb.scan(params).promise();
+      console.log("scan後のdata", data)
     } catch (err) {
-      throw err;
+      throw new Error(err);
     }
     console.log("watch data");
     console.log(JSON.stringify(data, null, 2));
@@ -150,7 +152,7 @@ const watch = async (request) => {
         try {
           var accessToken = await getAccesstoken(data.Items[0].google_refresh_token);
         } catch (err) {
-          throw err;
+          throw new Error(err);
         }
 
         //前回のチャンネルを削除する
@@ -172,7 +174,7 @@ const watch = async (request) => {
           let stop_data = await axios(opt);
           console.log("chanele stop success", stop_data); //成功時のresponse dataはempty
         } catch (err) {
-          throw new "Post request to stop Channels fail"();
+          throw new Error("Post request to stop Channels fail");
         }
 
         var calendarId = "";
@@ -209,8 +211,10 @@ const watch = async (request) => {
         };
         try {
           var respose = await axios(opt);
+          console.log("*** 新しいチャンネル作成に成功", respose)
+          console.log("resourceId取得", respose.data.resourceId) // resourceIdを取得
         } catch (err) {
-          throw err;
+          throw new Error(err);
         }
         var param = {
           TableName: "test-kintone-google-users",
@@ -235,6 +239,7 @@ const watch = async (request) => {
             });
             reject(err);
           } else {
+            console.log("*** db保存成功 dataUser テスト",  dataUser);
             resolve(dataUser);
           }
         });
@@ -242,7 +247,7 @@ const watch = async (request) => {
         try {
           var accessToken  = await getAccesstoken(data.Items[0].google_refresh_token);
         } catch (err) {
-          throw err;
+          throw new Error(err);
         }
         const oAuth2Client = new google.auth.OAuth2(clientId);
         oAuth2Client.setCredentials(accessToken);
@@ -250,7 +255,7 @@ const watch = async (request) => {
         try {
         res = await listEvents(oAuth2Client, data.Items[0]);
         } catch (err) {
-          throw err;
+          throw new Error(err);
         }
       }
     } else {
@@ -2782,7 +2787,7 @@ const getAccesstokenKintone = (
 
 // Get list events in Google calendar just updated to sync to Kintone
 const listEvents = async (auth, config) => {
-  console.log("config テスト", 　config)
+  console.log("*** listEvents発動 config テスト", 　config)
   var domain = config.domain_name;
 
   let check = await checkAuth(domain, pluginID);
@@ -3613,7 +3618,7 @@ const syncGoogleToKintone = async (
       }
     }
   } catch (err) {
-    throw err;
+    throw new Error(err);
   }
 };
 // const syncGoogleToKintone = (domain, appId, kintoneAccessToken, events, indexEvent, mappingFields, kintoneUserId, kintoneUserCode, kintoneUserName, calendarPlugin, arrRepeat, dataLogin, timeZoneUser) => {
@@ -4165,34 +4170,37 @@ const getNextSyncToken = async function (calendarId, accessToken) {
 
 
 const scanDynamo = async (opt) => {
+  let saiki_count = 0;
   try {
     // scan用のパラメーターをセット
     const params = opt
     // scanで取得したデータを格納する空の配列を定義しておく
     let scan_result;
+    let boolean = false
     const scan = async () => {
-      let result = await DynamoDB.scan(params).promise();
+      let result = await dynamodb.scan(params).promise();
+      saiki_count++;
       if (result.Items.length > 0) {
         scan_result = result;
-        return true;
+        boolean = true
+        return
       }
       // scanリクエストを行なった時にLastEvaluatedKeyがあれば、再帰的にリクエストを繰り返す
       if (result.LastEvaluatedKey) {
         params.ExclusiveStartKey = result.LastEvaluatedKey;
         await scan();
-      } else {
-        return false;
       }
     };
-
-    let boolean = await scan();
+    await scan();
+    console.log("再起カウント", saiki_count); // テスト
     if (boolean) {
+      console.log("再起でレコードを取り出すことに成功")
       return scan_result;
     } else {
-      throw "can not find specified record";
+      throw new Error("can not find specified record");
     }
   } catch (err) {
     console.log(err);
-    throw err;
+    throw new Error(err);
   }
 };

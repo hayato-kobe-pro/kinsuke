@@ -125,7 +125,8 @@ const watch = async (request) => {
       },
     };
     try {
-      var data = await dynamodb.scan(params).promise();
+      var data = await scanDynamo(params)//再帰でscanします
+      // var data = await dynamodb.scan(params).promise();
     } catch (err) {
       throw err;
     }
@@ -561,7 +562,6 @@ const configGoogle = async (data) => {
               if (err) {
                 reject(err);
               } else {
-                console.log("google confign後", dataDb);
                 var channel_expires_on = new Date();
                 channel_expires_on.setDate(channel_expires_on.getDate() + 30);
                 var google_expires_on = new Date();
@@ -4160,4 +4160,38 @@ const getNextSyncToken = async function (calendarId, accessToken) {
 
   let response = await axios(opt);
   return response.data.nextSyncToken;
+};
+
+
+const scanDynamo = async (opt) => {
+  try {
+    // scan用のパラメーターをセット
+    const params = opt
+    // scanで取得したデータを格納する空の配列を定義しておく
+    let scan_result;
+    const scan = async () => {
+      let result = await DynamoDB.scan(params).promise();
+      if (result.Items.length > 0) {
+        scan_result = result;
+        return true;
+      }
+      // scanリクエストを行なった時にLastEvaluatedKeyがあれば、再帰的にリクエストを繰り返す
+      if (result.LastEvaluatedKey) {
+        params.ExclusiveStartKey = result.LastEvaluatedKey;
+        await scan();
+      } else {
+        return false;
+      }
+    };
+
+    let boolean = await scan();
+    if (boolean) {
+      return scan_result;
+    } else {
+      throw "can not find specified record";
+    }
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
 };
